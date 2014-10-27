@@ -1,0 +1,97 @@
+---
+title: "U.S. weather events damage data explore"
+author: "Luna Gui"
+date: "22 October 2014"
+output: 
+  html_document:
+    keep_md: true
+---
+
+## synopsis
+
+**This project explored the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. The main purpose of this project is try to find out which types of events are most harmful with respect to population health, and which types of events have the greatest economic consequences.** 
+
+**I use Macbook pro OS X version 10.9.5 and RStudio Version 0.98.1062. My working environment detail:**
+
+```{r}
+sessionInfo()
+```
+
+##Data Processing
+
+You can download the file from the course web site: [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) [47Mb] (Or you can run my code chunk to download file.)
+
+Here you will find how some of the variables are constructed/defined:  
+1. National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)  
+2. National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+```{r downloaddata, cache=TRUE}
+zipfileurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if(!file.exists("StormData.csv.bz2")){
+        download.file(zipfileurl, destfile = "StormData.csv.bz2", method = "curl")
+        dataDownloaded <- date()
+        unzip("StormData.csv.bz2")
+}
+```
+
+
+## Explore data
+**Whole data set looks quite big, we just read first 100 row to check data structure.**
+```{r checkdata, cache=TRUE}
+StormDataEx <- read.csv("StormData.csv", nrows = 100)
+str(StormDataEx)
+```
+
+**We select useful colum to build our dataset. We choose BGN_DATE which is date of event happened, STATE for state short name, EVTYPE for event type, FATALITIES for fatality numbers, INJURIES for injury numbers and PROPDMG for property damage. **
+
+```{r exploredata, cache=TRUE}
+## read useful data
+mycols <- rep("NULL", 37); mycols[c(2,7,8,23,24,25)] <- NA
+StormData <- read.csv("StormData.csv", sep=",", colClasses=mycols)
+str(StormData)
+head(StormData)
+tail(StormData)
+```
+
+**Frome head and tail data, We can see whole data include approximately 60 years data.**  
+
+```{r summary}
+summary(StormData)
+```
+
+**Above summary shows that some max value stands out. We check it by plot.**
+
+```{r plot1,cache=TRUE}
+plot(StormData$EVTYPE, StormData$FATALITIES, main = "Fatalities" , xlab = "Event Type")
+plot(StormData$EVTYPE, StormData$INJURIES, main = "Injuries" , xlab = "Event Type")
+plot(StormData$EVTYPE, StormData$PROPDMG, main = "Property Damage" , xlab = "Event Type")
+```
+
+**We can see some events' damage extremely high.**
+
+```{r max}
+subset(StormData, StormData$FATALITIES==max(StormData$FATALITIES) )
+subset(StormData, StormData$INJURIES==max(StormData$INJURIES), )
+subset(StormData, StormData$PROPDMG==max(StormData$PROPDMG), )
+```
+
+## Results
+**For now, we just get some information by single data. How about total number of fatalities and injuries caused by event type? We can list top 10 damage event. **
+
+```{r sumdata, results= "asis"}
+## Get sum value and make new data for us
+sumFatalities <- tapply(StormData$FATALITIES, StormData$EVTYPE, sum)
+sumInjuries <- tapply(StormData$INJURIES, StormData$EVTYPE, sum)
+sumPropdmg <- tapply(StormData$PROPDMG, StormData$EVTYPE, sum)
+eventType <- levels(StormData$EVTYPE)
+Sumdata <- data.frame(eventtype = eventType, sum_fatalities = as.vector(sumFatalities), sum_injuries = as.vector(sumInjuries), sum_propdmg = as.vector(sumPropdmg))
+Maxfatalities <- Sumdata[order(-Sumdata$sum_fatalities, -Sumdata$sum_injuries),][1:10,1:3]
+Maxpropdmg <- Sumdata[order(-Sumdata$sum_propdmg),][1:10,-c(2,3)]
+## Top 10 event types which are most harmful with respect to population health.
+library(xtable)
+print(xtable(Maxfatalities), type = "html")
+##Top 10 event types which have the greatest economic consequences.
+print(xtable(Maxpropdmg), type = "html")
+```
+
+**Ok, it's no surprise that TORNADO caused hightest damage for people health and property lose. But it's quite surprised that HEAT caused so much higher damage for people health.**
